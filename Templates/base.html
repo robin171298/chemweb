@@ -1,0 +1,59 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>ChemDB - Nervous System Drugs</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header>
+    <div class="brand-stack">
+      <h1 class="brand">
+        ChemDB - Nervous System Drugs
+        <span class="brand-icon" aria-hidden="true">
+          <img src="{{ url_for('static', filename='flask.png') }}" alt="" />
+        </span>
+      </h1>
+      <nav class="nav-row">
+        <a href="{{ url_for('index') }}">Overview</a>
+        <a href="{{ url_for('drugs') }}">All drugs</a>
+        <a href="{{ url_for('help_page') }}">Help</a>
+        <a href="{{ url_for('about_page') }}">About</a>
+        <a href="{{ url_for('contact_page') }}">Contact</a>
+      </nav>
+    </div>
+    <form class="search" action="{{ url_for('drugs') }}" method="get">
+      <div class="search-examples">
+        <span>Examples:</span>
+        <button type="button" class="example-chip" data-term="Penfluridol">Penfluridol</button>
+        <button type="button" class="example-chip" data-term="Mephobarbital">Mephobarbital</button>
+      </div>
+      <input
+        type="search"
+        name="q"
+        placeholder="Search drugs, formula, mechanism"
+        value="{{ search_query|default('', true) }}"
+      />
+      <button type="submit">Search</button>
+    </form>
+    <script>
+      (function() {
+        const form = document.querySelector('form.search');
+        if (!form) return;
+        const input = form.querySelector('input[name="q"]');
+        form.querySelectorAll('.example-chip').forEach(btn => {
+          btn.addEventListener('click', () => {
+            if (!input) return;
+            input.value = btn.getAttribute('data-term') || '';
+            input.focus();
+          });
+        });
+      })();
+    </script>
+  </header>
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

@@ -1,0 +1,175 @@
+﻿{% extends "base.html" %}
+{% block content %}
+  {% if not drug %}
+    <h2>Drug not found</h2>
+    <p class="muted">No entry matched this Compound CID.</p>
+  {% else %}
+    <h2>{{ drug.Name }}</h2>
+    {% if drug.Compound_CID %}
+    <div class="structure-card">
+      <img
+        src="https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/CID/{{ drug.Compound_CID }}/PNG"
+        alt="Structure of {{ drug.Name }}"
+      />
+      <div class="muted small">Source: PubChem (CID {{ drug.Compound_CID }})</div>
+    </div>
+    {% endif %}
+    <div class="detail-card">
+      <table class="detail-table">
+        <tr><th>Compound CID</th><td>{{ drug.Compound_CID }}</td></tr>
+        <tr><th>Class</th><td>{{ drug.drug_class }}</td></tr>
+        <tr><th>IUPAC Name</th><td>{{ drug.IUPAC_Name|default("-", true) }}</td></tr>
+        <tr><th>Molecular Formula</th><td>{{ drug.Molecular_Formula }}</td></tr>
+        <tr><th>Molecular Weight</th><td>{{ drug.Molecular_Weight }}</td></tr>
+        <tr><th>XLogP</th><td>{{ drug.XLogP }}</td></tr>
+        <tr><th>Polar Area</th><td>{{ drug.Polar_Area }}</td></tr>
+      </table>
+    </div>
+
+    <div class="detail-card">
+      <div class="detail-section">
+        <div class="label">Mechanism of Action</div>
+        <p>{{ drug.Mechanism_of_Action|default("-", true) }}</p>
+      </div>
+      <div class="detail-section">
+        <div class="label">Main Medical Use</div>
+        <p>{{ drug.Main_Medical_Use|default("-", true) }}</p>
+      </div>
+    </div>
+
+    <div class="detail-card">
+      <button class="link-button" type="button" onclick="toggleSynonyms()">Show other synonyms</button>
+      <div id="synonyms-panel" class="synonyms hidden">
+        {% if synonyms %}
+        <table class="detail-table">
+          <tr><th>Synonym</th><th>Source</th></tr>
+          {% for s in synonyms %}
+          <tr>
+            <td>{{ s.synonym }}</td>
+            {% set src = s.source|default("", true) %}
+            {% set ik = drug.InChIKey %}
+            {% if ik and 'chembl' in src|lower %}
+              {% set link = 'https://www.ebi.ac.uk/chembl/search_results/' ~ ik %}
+            {% elif ik and 'wikidata' in src|lower %}
+              {% set link = 'https://www.wikidata.org/w/index.php?search=' ~ ik %}
+            {% else %}
+              {% set link = None %}
+            {% endif %}
+            <td>
+              {% if link %}
+                <a class="link" href="{{ link }}" target="_blank" rel="noopener noreferrer">{{ src }}</a>
+              {% else %}
+                {{ src }}
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </table>
+        {% else %}
+        <p class="muted">No additional synonyms found.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    {% set donor_ok = (drug.h_bond_donor_count is not none and drug.h_bond_donor_count <= 5) %}
+    {% set acceptor_ok = (drug.h_bond_acceptor_count is not none and drug.h_bond_acceptor_count <= 10) %}
+    {% set mw_ok = (drug.Molecular_Weight is not none and drug.Molecular_Weight < 500) %}
+    {% set xlogp_ok = (drug.XLogP is not none and drug.XLogP <= 5) %}
+    {% set rule_pass_count = (1 if donor_ok else 0) + (1 if acceptor_ok else 0) + (1 if mw_ok else 0) + (1 if xlogp_ok else 0) %}
+    {% set rule_total = 4 %}
+
+    <div class="detail-card lipinski-detail">
+      <div class="detail-section">
+        <div class="label">Lipinski's rule of five</div>
+        <table class="rule-table">
+          <tr>
+            <th>Rule</th>
+            <th>Value</th>
+            <th>Status</th>
+          </tr>
+          <tr>
+            <td>No more than 5 H-bond donors</td>
+            <td>{{ drug.h_bond_donor_count if drug.h_bond_donor_count is not none else "-" }}</td>
+            <td class="{{ 'status-ok' if donor_ok else 'status-fail' }}">{{ donor_ok and 'Pass' or 'Fail' }}</td>
+          </tr>
+          <tr>
+            <td>No more than 10 H-bond acceptors</td>
+            <td>{{ drug.h_bond_acceptor_count if drug.h_bond_acceptor_count is not none else "-" }}</td>
+            <td class="{{ 'status-ok' if acceptor_ok else 'status-fail' }}">{{ acceptor_ok and 'Pass' or 'Fail' }}</td>
+          </tr>
+          <tr>
+            <td>Molecular mass &lt; 500 g/mol</td>
+            <td>{{ drug.Molecular_Weight }}</td>
+            <td class="{{ 'status-ok' if mw_ok else 'status-fail' }}">{{ mw_ok and 'Pass' or 'Fail' }}</td>
+          </tr>
+          <tr>
+            <td>LogP ≤ 5</td>
+            <td>{{ drug.XLogP }}</td>
+            <td class="{{ 'status-ok' if xlogp_ok else 'status-fail' }}">{{ xlogp_ok and 'Pass' or 'Fail' }}</td>
+          </tr>
+        </table>
+      </div>
+      <div class="chart-card detail-chart">
+        <div class="chart-title">Lipinski Violation Count</div>
+        <canvas id="chart-lipinski" height="220"></canvas>
+        <div class="chart-legend" id="legend-lipinski"></div>
+      </div>
+    </div>
+
+    <script>
+      (function() {
+        const passCount = {{ rule_pass_count }};
+        const totalRules = {{ rule_total }};
+        const failCount = Math.max(totalRules - passCount, 0);
+        const data = [
+          { label: 'Passed', value: passCount, color: '#16a34a' },
+          { label: 'Failed', value: failCount, color: '#e11d48' },
+        ].filter(d => d.value > 0);
+
+        const canvas = document.getElementById('chart-lipinski');
+        if (!canvas || !data.length) return;
+        const ctx = canvas.getContext('2d');
+        const dpr = window.devicePixelRatio || 1;
+        const width = canvas.clientWidth || 480;
+        const height = Number(canvas.getAttribute('height')) || 220;
+        canvas.width = width * dpr;
+        canvas.height = height * dpr;
+        ctx.scale(dpr, dpr);
+
+        const radius = Math.min(width, height) / 2 - 10;
+        const cx = width / 2;
+        const cy = height / 2;
+        let start = -Math.PI / 2;
+        const total = data.reduce((s, d) => s + d.value, 0) || 1;
+
+        data.forEach(d => {
+          const angle = (d.value / total) * Math.PI * 2;
+          ctx.beginPath();
+          ctx.moveTo(cx, cy);
+          ctx.fillStyle = d.color;
+          ctx.arc(cx, cy, radius, start, start + angle);
+          ctx.closePath();
+          ctx.fill();
+          start += angle;
+        });
+
+        const legend = document.getElementById('legend-lipinski');
+        if (legend) {
+          legend.innerHTML = data.map(d => {
+            const pct = ((d.value / total) * 100).toFixed(1);
+            return `<span><span class="swatch" style="background:${d.color}"></span>${d.label} (${pct}%)</span>`;
+          }).join('');
+        }
+
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+      })();
+
+      function toggleSynonyms() {
+        const panel = document.getElementById('synonyms-panel');
+        if (!panel) return;
+        panel.classList.toggle('hidden');
+      }
+    </script>
+    <p><a class="link" href="{{ url_for('drugs') }}">Back to list</a></p>
+  {% endif %}
+{% endblock %}

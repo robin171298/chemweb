@@ -1,0 +1,340 @@
+﻿{% extends "base.html" %}
+{% block content %}
+<section class="intro">
+  <p>This project is a compound database focused on drugs acting on the nervous system, one of the most important and complex targets in modern medicine due to its role in mental health, neurological disorders, pain, and cognition. The database assigns chemical structures to five major drug classes: benzodiazepines, antidepressants, antipsychotics, stimulants, and antiepileptics.</p>
+  <p>For each compound, detailed chemical and scientific information is provided, including molecular properties, structural descriptors, and links to research activity such as literature and patent counts. In addition, the database offers insights based on Lipinski’s Rule of Five, allowing an estimation of oral drug-likeness and comparison between different drug classes.</p>
+  <p>The goal of this project is to combine chemistry, pharmacology, and data visualization in a single platform to better understand how molecular properties influence the real-world use of neuroactive drugs.</p>
+</section>
+
+<h2>Drug classes</h2>
+<table>
+  <tr>
+    <th>Class</th>
+    <th>Number of substances</th>
+    <th>View</th>
+  </tr>
+  {% for c in classes %}
+  <tr>
+    <td>{{ c.drug_class }}</td>
+    <td>{{ c.count }}</td>
+    <td>
+      <a href="{{ url_for('drugs', class=c.drug_class) }}">Show drugs</a>
+    </td>
+  </tr>
+  {% endfor %}
+</table>
+
+<h2>Top 10 by Literature Links</h2>
+<table>
+  <tr>
+    <th>Name</th>
+    <th>CID</th>
+    <th>Literature Count</th>
+  </tr>
+  {% for d in top_literature %}
+  <tr>
+    <td><a class="link" href="{{ url_for('drug_detail', compound_cid=d.Compound_CID) }}">{{ d.Name }}</a></td>
+    <td>{{ d.Compound_CID }}</td>
+    <td>{{ d.literature_count }}</td>
+  </tr>
+  {% endfor %}
+</table>
+
+<h2>Top 10 by Patent Links</h2>
+<table>
+  <tr>
+    <th>Name</th>
+    <th>CID</th>
+    <th>Patent Count</th>
+  </tr>
+  {% for d in top_patents %}
+  <tr>
+    <td><a class="link" href="{{ url_for('drug_detail', compound_cid=d.Compound_CID) }}">{{ d.Name }}</a></td>
+    <td>{{ d.Compound_CID }}</td>
+    <td>{{ d.patent_count }}</td>
+  </tr>
+  {% endfor %}
+</table>
+
+<div class="lipinski-box">
+  <h2>Lipinski&apos;s rule of five</h2>
+  <p class="lipinski-note">Overview of key properties grouped by drug class.</p>
+  <ul class="lipinski-list">
+    <li>No more than 5 hydrogen bond donors</li>
+    <li>No more than 10 hydrogen bond acceptors</li>
+    <li>A molecular mass less than 500 g/mol</li>
+    <li>A calculated octanol-water partition coefficient that does not exceed 5</li>
+  </ul>
+  <div class="class-filter" id="class-filter"></div>
+  <div class="chart-grid">
+    <div class="chart-card">
+      <div class="chart-title">Molecular Weight</div>
+      <canvas id="chart-mw" height="260"></canvas>
+      <div class="chart-legend" id="legend-mw"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">XLogP</div>
+      <canvas id="chart-xlogp" height="260"></canvas>
+      <div class="chart-legend" id="legend-xlogp"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">H-Bond Donor Count</div>
+      <canvas id="chart-donor" height="260"></canvas>
+      <div class="chart-legend" id="legend-donor"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">H-Bond Acceptor Count</div>
+      <canvas id="chart-acceptor" height="260"></canvas>
+      <div class="chart-legend" id="legend-acceptor"></div>
+    </div>
+  </div>
+</div>
+
+<div class="param-box">
+  <h2>Overview of important parameters</h2>
+  <p class="param-note">Distribution by class for additional descriptors, plus charge proportions.</p>
+  <div class="class-filter" id="class-filter-2"></div>
+  <div class="chart-grid">
+    <div class="chart-card">
+      <div class="chart-title">Polar Area</div>
+      <canvas id="chart-polar" height="260"></canvas>
+      <div class="chart-legend" id="legend-polar"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Rotatable Bond Count</div>
+      <canvas id="chart-rot" height="260"></canvas>
+      <div class="chart-legend" id="legend-rot"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Complexity</div>
+      <canvas id="chart-complexity" height="260"></canvas>
+      <div class="chart-legend" id="legend-complexity"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Total Atom Stereo Count</div>
+      <canvas id="chart-stereo" height="260"></canvas>
+      <div class="chart-legend" id="legend-stereo"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Charge proportions</div>
+      <canvas id="chart-charge" height="260"></canvas>
+      <div class="chart-legend" id="legend-charge"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const lipinskiData = {{ lipinski_data|tojson }};
+  (function() {
+    if (!Array.isArray(lipinskiData) || !lipinskiData.length) return;
+
+    const palette = ['#1d4ed8', '#ea580c', '#16a34a', '#7c3aed', '#0ea5e9', '#e11d48', '#9333ea', '#f59e0b', '#06b6d4', '#84cc16'];
+    const classes = Array.from(new Set(lipinskiData.map(r => r.drug_class || 'Unclassified')));
+    const classColor = new Map();
+    classes.forEach((cls, idx) => classColor.set(cls, palette[idx % palette.length]));
+    const selectedLipinski = new Set(classes);
+    const selectedParams = new Set(classes);
+
+    const chartsLipinski = [
+      { field: 'Molecular_Weight', canvas: 'chart-mw', legend: 'legend-mw', bins: 15, decimals: 0 },
+      { field: 'XLogP', canvas: 'chart-xlogp', legend: 'legend-xlogp', bins: 12, decimals: 1 },
+      { field: 'h_bond_donor_count', canvas: 'chart-donor', legend: 'legend-donor', bins: 8, decimals: 0 },
+      { field: 'h_bond_acceptor_count', canvas: 'chart-acceptor', legend: 'legend-acceptor', bins: 8, decimals: 0 },
+    ];
+    const chartsParams = [
+      { field: 'Polar_Area', canvas: 'chart-polar', legend: 'legend-polar', bins: 12, decimals: 0 },
+      { field: 'Rotatable_Bond_Count', canvas: 'chart-rot', legend: 'legend-rot', bins: 10, decimals: 0 },
+      { field: 'Complexity', canvas: 'chart-complexity', legend: 'legend-complexity', bins: 12, decimals: 0 },
+      { field: 'Total_Atom_Stereo_Count', canvas: 'chart-stereo', legend: 'legend-stereo', bins: 8, decimals: 0 },
+    ];
+
+    renderFilters('class-filter', selectedLipinski, renderAllLipinski);
+    renderFilters('class-filter-2', selectedParams, renderAllParams);
+    renderAllLipinski();
+    renderAllParams();
+    renderChargePie();
+
+    function renderAllLipinski() {
+      chartsLipinski.forEach(cfg => renderHistogram(cfg, selectedLipinski));
+    }
+
+    function renderAllParams() {
+      chartsParams.forEach(cfg => renderHistogram(cfg, selectedParams));
+      renderChargePie();
+    }
+
+    function renderHistogram(cfg, selectedSet) {
+      const rows = lipinskiData.filter(r => r[cfg.field] !== null && r[cfg.field] !== undefined && selectedSet.has(r.drug_class || 'Unclassified'));
+      if (!rows.length) {
+        clearCanvas(cfg.canvas, cfg.legend);
+        return;
+      }
+      const values = rows.map(r => Number(r[cfg.field])).filter(v => !Number.isNaN(v));
+      if (!values.length) return;
+
+      const min = Math.min(...values);
+      const max = Math.max(...values);
+      const binCount = cfg.bins || 12;
+      const range = Math.max(max - min, 1);
+      const binSize = range / binCount;
+
+      const totalsByBin = Array(binCount).fill(0);
+      const counts = {};
+      selectedSet.forEach(cls => counts[cls] = Array(binCount).fill(0));
+
+      rows.forEach(r => {
+        const v = Number(r[cfg.field]);
+        if (Number.isNaN(v)) return;
+        const cls = r.drug_class || 'Unclassified';
+        const idx = Math.min(binCount - 1, Math.floor((v - min) / range * binCount));
+        counts[cls][idx] += 1;
+        totalsByBin[idx] += 1;
+      });
+
+      const canvas = document.getElementById(cfg.canvas);
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const width = canvas.clientWidth || 680;
+      const height = Number(canvas.getAttribute('height')) || 260;
+      canvas.width = width;
+      canvas.height = height;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, width, height);
+
+      const margin = { top: 10, right: 20, bottom: 60, left: 45 };
+      const chartW = width - margin.left - margin.right;
+      const chartH = height - margin.top - margin.bottom;
+      ctx.translate(margin.left, margin.top);
+
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(0, chartH);
+      ctx.lineTo(chartW, chartH);
+      ctx.stroke();
+
+      const binWidth = chartW / binCount;
+      const maxBin = Math.max(...totalsByBin, 1);
+
+      for (let i = 0; i < binCount; i++) {
+        let y = chartH;
+        selectedSet.forEach(cls => {
+          const val = counts[cls][i];
+          if (!val) return;
+          const h = (val / maxBin) * chartH;
+          y -= h;
+          ctx.fillStyle = classColor.get(cls);
+          ctx.fillRect(i * binWidth + 1, y, binWidth - 2, h);
+        });
+
+        if (binCount <= 16 || i % Math.ceil(binCount / 8) === 0) {
+          const start = min + i * binSize;
+          const end = start + binSize;
+          const label = `${start.toFixed(cfg.decimals || 0)}-${end.toFixed(cfg.decimals || 0)}`;
+          ctx.save();
+          ctx.fillStyle = '#0f172a';
+          ctx.font = '11px system-ui';
+          ctx.translate(i * binWidth + binWidth / 2, chartH + 12);
+          ctx.rotate(-Math.PI / 6);
+          ctx.textAlign = 'right';
+          ctx.fillText(label, 0, 0);
+          ctx.restore();
+        }
+      }
+
+      ctx.fillStyle = '#0f172a';
+      ctx.font = '11px system-ui';
+      ctx.textAlign = 'right';
+      ctx.fillText(maxBin.toString(), -8, 10);
+
+      const legend = document.getElementById(cfg.legend);
+      if (legend) {
+        legend.innerHTML = Array.from(selectedSet).map(cls => `<span><span class="swatch" style="background:${classColor.get(cls)}"></span>${cls}</span>`).join('');
+      }
+
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+    }
+
+    function renderChargePie() {
+      const rows = lipinskiData.filter(r => r.Charge !== null && r.Charge !== undefined && selectedParams.has(r.drug_class || 'Unclassified'));
+      if (!rows.length) return;
+      const counts = new Map();
+      rows.forEach(r => {
+        const key = String(r.Charge);
+        counts.set(key, (counts.get(key) || 0) + 1);
+      });
+      const entries = Array.from(counts.entries());
+      const total = entries.reduce((sum, [, v]) => sum + v, 0) || 1;
+
+      const canvas = document.getElementById('chart-charge');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const width = canvas.clientWidth || 680;
+      const height = Number(canvas.getAttribute('height')) || 260;
+      canvas.width = width;
+      canvas.height = height;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, width, height);
+
+      const radius = Math.min(width, height) / 2 - 10;
+      const cx = width / 2;
+      const cy = height / 2;
+      let start = -Math.PI / 2;
+      const totalVal = total;
+
+      entries.forEach(([charge, count], idx) => {
+        const frac = count / totalVal;
+        const angle = frac * Math.PI * 2;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.fillStyle = palette[idx % palette.length];
+        ctx.arc(cx, cy, radius, start, start + angle);
+        ctx.closePath();
+        ctx.fill();
+        start += angle;
+      });
+
+      const legend = document.getElementById('legend-charge');
+      if (legend) {
+        legend.innerHTML = entries.map(([charge, count], idx) => {
+          const pct = ((count / totalVal) * 100).toFixed(1);
+          return `<span><span class="swatch" style="background:${palette[idx % palette.length]}"></span>Charge ${charge} (${pct}%)</span>`;
+        }).join('');
+      }
+
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+    }
+
+    function renderFilters(containerId, selectedSet, onChange) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      container.innerHTML = classes.map(cls => {
+        const checked = selectedSet.has(cls) ? 'checked' : '';
+        const color = classColor.get(cls);
+        return `<label><input type="checkbox" data-class="${cls}" ${checked}> <span class="swatch" style="background:${color}"></span>${cls}</label>`;
+      }).join('');
+      container.querySelectorAll('input[type="checkbox"]').forEach(input => {
+        input.addEventListener('change', (e) => {
+          const cls = e.target.getAttribute('data-class');
+          if (e.target.checked) {
+            selectedSet.add(cls);
+          } else {
+            selectedSet.delete(cls);
+          }
+          onChange();
+        });
+      });
+    }
+
+    function clearCanvas(id, legendId) {
+      const canvas = document.getElementById(id);
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const legend = document.getElementById(legendId);
+      if (legend) legend.innerHTML = '';
+    }
+  })();
+</script>
+{% endblock %}

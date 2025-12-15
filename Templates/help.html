@@ -1,0 +1,64 @@
+﻿{% extends "base.html" %}
+{% block content %}
+<h2>Help &amp; User Guide</h2>
+
+<section class="help-section">
+  <h3>Welcome</h3>
+  <p>Welcome to the nervous system drug database. This page explains how to use the website and how to understand the information shown.</p>
+</section>
+
+<section class="help-section">
+  <h3>🔍 Browsing the Database</h3>
+  <p>On the overview page, you can see the five main drug classes:</p>
+  <ul>
+    <li>Benzodiazepines</li>
+    <li>Antidepressants</li>
+    <li>Antipsychotics</li>
+    <li>Stimulants</li>
+    <li>Antiepileptics</li>
+  </ul>
+  <p>Click on any class to view all compounds that belong to it. You can also view a general list of compounds without filtering.</p>
+</section>
+
+<section class="help-section">
+  <h3>🧪 Understanding the Drug Information</h3>
+  <p>Each compound entry contains:</p>
+  <ul>
+    <li>Name and PubChem CID – for clear identification</li>
+    <li>Molecular formula and molecular weight – basic chemical properties</li>
+    <li>XLogP and polar surface area – indicators of lipophilicity and brain penetration</li>
+    <li>Hydrogen bond donors and acceptors – important for drug-likeness</li>
+    <li>Mechanism of action – how the drug works biologically</li>
+    <li>Main medical use – what the drug is used for in medicine</li>
+  </ul>
+  <p>These properties are commonly used in medicinal chemistry and pharmacology to describe and compare drugs.</p>
+</section>
+
+<section class="help-section">
+  <h3>💊 Lipinski’s Rule of Five</h3>
+  <p>The database includes properties used in Lipinski’s Rule of Five, a guideline for estimating whether a compound is suitable for oral administration. Compounds that meet most or all of these rules are more likely to have good absorption in the human body.</p>
+</section>
+
+<section class="help-section">
+  <h3>🧠 Focus on Nervous System Drugs</h3>
+  <p>This database focuses on nervous system drugs because they play a central role in treating:</p>
+  <ul>
+    <li>Mental health disorders</li>
+    <li>Neurological diseases</li>
+    <li>Epilepsy</li>
+    <li>Sleep and anxiety disorders</li>
+    <li>Cognitive and attention-related conditions</li>
+  </ul>
+  <p>These drugs are among the most widely used and scientifically studied medications worldwide.</p>
+</section>
+
+<section class="help-section">
+  <h3>🧬 Molecular Structure View</h3>
+  <p>For many compounds, a 2D molecular structure image is shown. These images are provided via PubChem and help visualize how the molecule is built.</p>
+</section>
+
+<section class="help-section">
+  <h3>⚠️ Important Disclaimer</h3>
+  <p>This database is intended for educational and scientific purposes only. It does not provide medical advice, diagnosis, or treatment recommendations. Always consult qualified healthcare professionals for medical decisions.</p>
+</section>
+{% endblock %}

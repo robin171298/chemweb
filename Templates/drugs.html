@@ -1,0 +1,92 @@
+﻿{% extends "base.html" %}
+{% block content %}
+<h2>Drug search</h2>
+
+<div class="filters">
+  {% if selected_class %}
+    <span>Class: <strong>{{ selected_class }}</strong></span>
+  {% endif %}
+  {% if search_query %}
+    <span>Search: <strong>{{ search_query }}</strong></span>
+  {% endif %}
+  {% if not selected_class and not search_query %}
+    <span>Showing first 200 entries</span>
+  {% endif %}
+</div>
+
+{% if drugs %}
+<table>
+  <tr>
+    <th>Name</th>
+    <th>Class</th>
+    <th>CID</th>
+    <th>Formula</th>
+    <th>MW</th>
+    <th>XLogP</th>
+    <th>Polar Area</th>
+    <th>Main Medical Use</th>
+  </tr>
+
+  {% for d in drugs %}
+  <tr>
+    <td><a class="link" href="{{ url_for('drug_detail', compound_cid=d.Compound_CID) }}">{{ d.Name }}</a></td>
+    <td>{{ d.drug_class }}</td>
+    <td>{{ d.Compound_CID }}</td>
+    <td>{{ d.Molecular_Formula }}</td>
+    <td>{{ d.Molecular_Weight }}</td>
+    <td>{{ d.XLogP }}</td>
+    <td>{{ d.Polar_Area }}</td>
+    <td>{{ (d.Main_Medical_Use|default('-', true))[:120] }}{% if d.Main_Medical_Use and d.Main_Medical_Use|length > 120 %}...{% endif %}</td>
+  </tr>
+  {% endfor %}
+</table>
+
+<div class="chart-grid mt-2">
+  <div class="chart-card">
+    <div class="chart-title">Top 10 by Literature Links (current results)</div>
+    <div class="bar-list" id="bar-literature"></div>
+  </div>
+  <div class="chart-card">
+    <div class="chart-title">Top 10 by Patent Links (current results)</div>
+    <div class="bar-list" id="bar-patents"></div>
+  </div>
+</div>
+
+<script>
+  const topLit = {{ top_literature|tojson }};
+  const topPat = {{ top_patents|tojson }};
+
+  renderBars(topLit, 'bar-literature', 'Linked_PubChem_Literature_Count');
+  renderBars(topPat, 'bar-patents', 'Linked_PubChem_Patent_Count');
+
+  function renderBars(data, containerId, field) {
+    const container = document.getElementById(containerId);
+    if (!container || !Array.isArray(data) || !data.length) {
+      if (container) container.innerHTML = '<p class="muted small">No data in current results.</p>';
+      return;
+    }
+    const maxVal = Math.max(...data.map(d => Number(d[field] || 0)), 1);
+    container.innerHTML = data.map(d => {
+      const val = Number(d[field] || 0);
+      const pct = Math.max(2, (val / maxVal) * 100); // min width
+      const name = d.Name || 'Unknown';
+      const cid = d.Compound_CID || '';
+      return `
+        <div class="bar-row">
+          <div class="bar-label">
+            <a class="link" href="${cid ? `/drug/${cid}` : '#'}">${name}</a>
+            <span class="muted small">${cid}</span>
+          </div>
+          <div class="bar-track">
+            <div class="bar-fill" style="width:${pct}%"></div>
+          </div>
+          <div class="bar-value">${val}</div>
+        </div>
+      `;
+    }).join('');
+  }
+</script>
+{% else %}
+<p class="muted">No drugs found for your search.</p>
+{% endif %}
+{% endblock %}

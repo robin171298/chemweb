@@ -1,0 +1,49 @@
+﻿{% extends "base.html" %}
+{% block content %}
+<h2>About This Project</h2>
+
+<section class="help-section">
+  <p>This website presents a scientific database of nervous system drugs, created as part of an educational project at the intersection of chemistry, pharmacology, and data science. The database collects and organizes detailed information on chemical compounds that act on the central nervous system and assigns them to five major pharmacological classes:</p>
+  <ul>
+    <li>Benzodiazepines</li>
+    <li>Antidepressants</li>
+    <li>Antipsychotics</li>
+    <li>Stimulants</li>
+    <li>Antiepileptics</li>
+  </ul>
+  <p>The nervous system was chosen as the focus because drugs acting on it are among the most important and widely used medications in modern medicine, playing a central role in the treatment of mental health disorders, epilepsy, neurodegenerative diseases, sleep disorders, and attention-related conditions.</p>
+</section>
+
+<section class="help-section">
+  <h3>What the Database Contains</h3>
+  <p>For each compound, the database provides:</p>
+  <ul>
+    <li>Chemical structure information (formula, molecular weight, SMILES, InChI)</li>
+    <li>Physicochemical properties such as XLogP and polar surface area</li>
+    <li>Drug-likeness parameters based on Lipinski’s Rule of Five</li>
+    <li>Biological and medical annotations, including:</li>
+    <ul>
+      <li>Mechanism of action</li>
+      <li>Main medical use</li>
+      <li>Scientific relevance, reflected by literature and patent counts</li>
+    </ul>
+  </ul>
+  <p>This allows users to explore how molecular structure, chemical properties, and pharmacological function are connected.</p>
+</section>
+
+<section class="help-section">
+  <h3>Project Goal</h3>
+  <p>The goal of this project is to:</p>
+  <ul>
+    <li>Visualize and compare important nervous system drugs</li>
+    <li>Demonstrate how chemical properties influence oral drug suitability</li>
+    <li>Provide a clear and accessible interface for exploring real-world pharmaceutical data</li>
+    <li>Combine database design, web development, and medicinal chemistry concepts in one platform</li>
+  </ul>
+</section>
+
+<section class="help-section">
+  <h3>Disclaimer</h3>
+  <p>This database is intended for educational and research purposes only. It does not provide medical advice, diagnosis, or treatment recommendations.</p>
+</section>
+{% endblock %}
